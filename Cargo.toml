@@ -1,12 +1,11 @@
 [package]
 name = "minuter"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Standalone second and minute time cues, based on Andre Louis's Minuter"
 
 [dependencies]
-wxdragon = { version = "=0.9.22", optional = true }
-rungui = { version = "=0.4.0", optional = true }
+rungui = "=0.4.0"
 cpal = "0.16"
 hound = "3.5"
 prismer = { version = "=0.1.4", features = ["static"] }
@@ -24,18 +23,3 @@ strip = "debuginfo"
 
 [build-dependencies]
 embed-resource = "1.8"
-
-[features]
-default = ["wx-ui"]
-wx-ui = ["dep:wxdragon"]
-rungui-ui = ["dep:rungui"]
-
-[[bin]]
-name = "minuter"
-path = "src/main.rs"
-required-features = ["wx-ui"]
-
-[[bin]]
-name = "minuter-rungui"
-path = "src/main_rungui.rs"
-required-features = ["rungui-ui"]

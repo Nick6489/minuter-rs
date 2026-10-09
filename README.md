@@ -1,6 +1,6 @@
 # Minuter
 
-Standalone Rust version of Andre Louis's Minuter time-cue add-on. Uses WXDragon for the interface and Prismer for screen-reader or system-voice speech.
+Standalone Rust version of Andre Louis's Minuter time-cue add-on. Uses rungui for the interface and Prismer for screen-reader or system-voice speech.
 
 ## Run
 
@@ -25,7 +25,7 @@ Preferences are saved in `%APPDATA%\Minuter\settings.json`. All cues start disab
 
 Requires Rust, Visual Studio C++ build tools, CMake, and LLVM/libclang on Windows. Run `./build.ps1` from PowerShell. The script builds a release executable and copies only `Minuter.exe` into `dist`.
 
-WXDragon, Prism/Prismer, and the C/C++ runtime are statically linked. The original WAV bytes are included at compile time, decoded once in memory, and resampled when opening an output device. A continuous CPAL audio callback mixes the cues without file access, locks, or allocation. Clock changes and sleep do not produce a backlog of missed cues.
+rungui links to native system controls. Prism/Prismer and the C/C++ runtime are statically linked. The original WAV bytes are included at compile time, decoded once in memory, and resampled when opening an output device. A continuous CPAL audio callback mixes the cues without file access, locks, or allocation. Clock changes and sleep do not produce a backlog of missed cues.
 
 Run `cargo test --release` for audio and preference checks. Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./verify-native.ps1` for the Windows dialog/tray smoke test. It restores preferences after testing.
 
@@ -35,8 +35,8 @@ The interface, sound engine, and speech binding are cross-platform foundations. 
 
 Original Minuter add-on and sounds: [Andre Louis's Minuter](https://github.com/OnjLouis/Minuter). Sound assets were copied unchanged from the provided add-on version 1.0.2.
 
-Interface: WXDragon and wxWidgets. Speech: Prismer and Prism. Audio: CPAL. The original add-on source has been left unchanged.
+Interface: rungui. Speech: Prismer and Prism. Audio: CPAL. The original add-on source has been left unchanged.
 
-## Experimental rungui interface
+## Native GUI validation
 
-This local branch also contains a [rungui experiment and measured comparison](rungui-experiment.md). Run ./build-rungui.ps1 to produce its separate one-file Windows build. The default build remains WXDragon.
+Minuter also serves as a small real-world test of rungui: native controls, accessibility, keyboard behavior, and integration with a background audio app. See the [GUI validation notes](gui-validation.md) for the measured comparison and platform coverage.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Switch the released interface from WXDragon to rungui, keeping the cue options, embedded sounds, screen-reader speech, device picker, tray controls, and global shortcut.
+- Reduce the Windows executable size substantially while retaining a one-file distribution.
+- Use the standard Minuter window/tray names and existing `%APPDATA%\Minuter\settings.json` preferences.
+- Add Windows tray/default-button integration and explicit widget cleanup for clean shutdown.
+- Make Minuter a real-world native-GUI validation app for rungui.
+
 ## 0.1.0
 
 First standalone Windows release, based on Andre Louis's Minuter NVDA add-on.

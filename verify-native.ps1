@@ -1,5 +1,4 @@
-﻿param([switch]$Rungui)
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 Add-Type -AssemblyName Accessibility
 $source=@"
 using System; using System.Runtime.InteropServices; using System.Text;
@@ -20,11 +19,11 @@ public static string Text(IntPtr h) {var b=new StringBuilder(2048);GetWindowText
 public static IntPtr Window(uint pid,string name) {IntPtr found=IntPtr.Zero;EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid && Text(h)==name)found=h;return true;},IntPtr.Zero);return found;}
 public static IntPtr Control(IntPtr window,string text) {IntPtr found=IntPtr.Zero;EnumChildWindows(window,(h,l)=>{if(Text(h)==text) found=h;return true;},IntPtr.Zero);return found;}
 [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
-public static void Reopen(uint pid) {uint message=RegisterWindowMessage("wxTaskBarIconMessage");EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid) {if(Text(h)=="") SendMessage(h,message,new IntPtr(99),new IntPtr(0x203));if(Text(h)=="Minuter — rungui experiment") SendMessage(h,0x8041,new IntPtr(1),new IntPtr(0x203));}return true;},IntPtr.Zero);}
+public static void Reopen(uint pid) {var window=Window(pid,"Minuter");if(window!=IntPtr.Zero)SendMessage(window,0x8041,new IntPtr(1),new IntPtr(0x203));}
 [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr h);
 [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr h);
 public static IntPtr Combo(IntPtr window) {IntPtr found=IntPtr.Zero;EnumChildWindows(window,(h,l)=>{var b=new StringBuilder(64);GetClassName(h,b,64);if(b.ToString()=="ComboBox")found=h;return true;},IntPtr.Zero);return found;}
-public static int ChoiceNotification=9;
+public static int ChoiceNotification=1;
 public static void Select(IntPtr combo,int index) {SendMessage(combo,0x14E,new IntPtr(index),IntPtr.Zero);SendMessage(GetParent(combo),0x111,new IntPtr((ChoiceNotification<<16)|(GetDlgCtrlID(combo)&0xffff)),combo);}
 public static string AccessibleName(IntPtr h) {return Access(h).get_accName(0);}
 public static int AccessibleState(IntPtr h) {return Convert.ToInt32(Access(h).get_accState(0));}
@@ -39,10 +38,9 @@ public static void Shortcut() {keybd_event(0x11,0,0,UIntPtr.Zero);keybd_event(0x
 "@
 Add-Type -TypeDefinition $source -ReferencedAssemblies Accessibility
 function Assert($condition,$message) { if (!$condition) { throw $message }; "PASS: $message" }
-$appFolder=if($Rungui){'Minuter-rungui'}else{'Minuter'}
-$executable=if($Rungui){'target\release\minuter-rungui.exe'}else{'target\release\minuter.exe'}
-$windowTitle=if($Rungui){'Minuter — rungui experiment'}else{'Minuter'}
-if($Rungui){[MinuterNativeTest]::ChoiceNotification=1}
+$appFolder='Minuter'
+$executable='target\release\minuter.exe'
+$windowTitle='Minuter'
 $file=Join-Path $env:APPDATA "$appFolder\settings.json"
 $backup=if(Test-Path -LiteralPath $file){[System.IO.File]::ReadAllBytes($file)}else{$null}
 $process=Start-Process (Join-Path $PSScriptRoot $executable) -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $PSScriptRoot "target\native-test-stderr.log")
@@ -92,11 +90,13 @@ Assert ($message.StartsWith('Speech: ')) "Prismer speech backend is active ($mes
 [MinuterNativeTest]::Click($close)
 Assert (![MinuterNativeTest]::IsWindowVisible($window)) 'Close hides settings'
 Assert (!$process.HasExited) 'Closing keeps the app running'
-[MinuterNativeTest]::Shortcut()
 Start-Sleep -Milliseconds 300
+[MinuterNativeTest]::Shortcut()
+Start-Sleep -Milliseconds 1500
 Assert ([MinuterNativeTest]::IsWindowVisible($window)) 'Ctrl+Alt+Shift+Backspace shows settings'
-[MinuterNativeTest]::Shortcut()
 Start-Sleep -Milliseconds 300
+[MinuterNativeTest]::Shortcut()
+Start-Sleep -Milliseconds 1500
 Assert (![MinuterNativeTest]::IsWindowVisible($window)) 'Ctrl+Alt+Shift+Backspace hides settings'
 Assert ([MinuterNativeTest]::Control($window,'Speech uses Prismer.') -eq [IntPtr]::Zero) 'Dialog does not mention Prismer'
 [MinuterNativeTest]::Reopen($process.Id)

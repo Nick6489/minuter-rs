@@ -23,11 +23,11 @@ mod platform {
     impl Instance {
         pub fn acquire() -> Result<Self, String> {
             unsafe {
-                let handle = CreateMutexW(None, false, w!("Local\\Minuter-rungui-experiment"))
+                let handle = CreateMutexW(None, false, w!("Local\\Minuter-standalone"))
                     .map_err(|e| e.to_string())?;
                 if GetLastError() == ERROR_ALREADY_EXISTS {
                     let _ = CloseHandle(handle);
-                    return Err("The experimental Minuter is already running. Use its tray icon or Ctrl+Alt+Shift+Backspace.".into());
+                    return Err("Minuter is already running. Use its tray icon or Ctrl+Alt+Shift+Backspace.".into());
                 }
                 Ok(Self(handle))
             }
@@ -83,7 +83,7 @@ mod platform {
                 for (slot, code) in data
                     .szTip
                     .iter_mut()
-                    .zip("Minuter — rungui experiment".encode_utf16())
+                    .zip("Minuter — second and minute cues".encode_utf16())
                 {
                     *slot = code;
                 }
@@ -182,7 +182,7 @@ pub struct Tray;
 #[cfg(not(windows))]
 impl Tray {
     pub fn new(_window: usize, _close: usize) -> Result<Self, String> {
-        Err("Experimental tray support is currently Windows-only.".into())
+        Err("Tray support is currently Windows-only.".into())
     }
     pub fn commands(&self) -> u32 {
         0
