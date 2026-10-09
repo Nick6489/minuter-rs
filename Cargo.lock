@@ -828,6 +828,7 @@ dependencies = [
  "embed-resource",
  "hound",
  "prismer",
+ "rungui",
  "serde",
  "serde_json",
  "windows 0.62.2",
@@ -1236,6 +1237,12 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
 ]
+
+[[package]]
+name = "rungui"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13306b3ef77dda35261e8c2209f186bfcc28878d437c81ed4a4f303a82e8c80f"
 
 [[package]]
 name = "rustc-hash"

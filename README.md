@@ -36,3 +36,7 @@ The interface, sound engine, and speech binding are cross-platform foundations. 
 Original Minuter add-on and sounds: [Andre Louis's Minuter](https://github.com/OnjLouis/Minuter). Sound assets were copied unchanged from the provided add-on version 1.0.2.
 
 Interface: WXDragon and wxWidgets. Speech: Prismer and Prism. Audio: CPAL. The original add-on source has been left unchanged.
+
+## Experimental rungui interface
+
+This local branch also contains a [rungui experiment and measured comparison](rungui-experiment.md). Run ./build-rungui.ps1 to produce its separate one-file Windows build. The default build remains WXDragon.

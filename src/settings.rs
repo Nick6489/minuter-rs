@@ -61,7 +61,11 @@ pub fn path() -> PathBuf {
         .unwrap_or_else(|| {
             PathBuf::from(std::env::var_os("HOME").unwrap_or_default()).join(".config")
         });
-    root.join("Minuter").join("settings.json")
+    #[cfg(all(feature = "rungui-ui", not(feature = "wx-ui")))]
+    let folder = "Minuter-rungui";
+    #[cfg(not(all(feature = "rungui-ui", not(feature = "wx-ui"))))]
+    let folder = "Minuter";
+    root.join(folder).join("settings.json")
 }
 #[cfg(test)]
 mod tests {

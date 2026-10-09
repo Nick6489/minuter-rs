@@ -1,3 +1,4 @@
+﻿param([switch]$Rungui)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName Accessibility
 $source=@"
@@ -19,11 +20,15 @@ public static string Text(IntPtr h) {var b=new StringBuilder(2048);GetWindowText
 public static IntPtr Window(uint pid,string name) {IntPtr found=IntPtr.Zero;EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid && Text(h)==name)found=h;return true;},IntPtr.Zero);return found;}
 public static IntPtr Control(IntPtr window,string text) {IntPtr found=IntPtr.Zero;EnumChildWindows(window,(h,l)=>{if(Text(h)==text) found=h;return true;},IntPtr.Zero);return found;}
 [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern uint RegisterWindowMessage(string name);
-public static void Reopen(uint pid) {uint message=RegisterWindowMessage("wxTaskBarIconMessage");EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid && Text(h)=="") SendMessage(h,message,new IntPtr(99),new IntPtr(0x203));return true;},IntPtr.Zero);}
+public static void Reopen(uint pid) {uint message=RegisterWindowMessage("wxTaskBarIconMessage");EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);if(p==pid) {if(Text(h)=="") SendMessage(h,message,new IntPtr(99),new IntPtr(0x203));if(Text(h)=="Minuter — rungui experiment") SendMessage(h,0x8041,new IntPtr(1),new IntPtr(0x203));}return true;},IntPtr.Zero);}
 [DllImport("user32.dll")] public static extern IntPtr GetParent(IntPtr h);
 [DllImport("user32.dll")] public static extern int GetDlgCtrlID(IntPtr h);
 public static IntPtr Combo(IntPtr window) {IntPtr found=IntPtr.Zero;EnumChildWindows(window,(h,l)=>{var b=new StringBuilder(64);GetClassName(h,b,64);if(b.ToString()=="ComboBox")found=h;return true;},IntPtr.Zero);return found;}
-public static void Select(IntPtr combo,int index) {SendMessage(combo,0x14E,new IntPtr(index),IntPtr.Zero);SendMessage(GetParent(combo),0x111,new IntPtr((9<<16)|(GetDlgCtrlID(combo)&0xffff)),combo);}
+public static int ChoiceNotification=9;
+public static void Select(IntPtr combo,int index) {SendMessage(combo,0x14E,new IntPtr(index),IntPtr.Zero);SendMessage(GetParent(combo),0x111,new IntPtr((ChoiceNotification<<16)|(GetDlgCtrlID(combo)&0xffff)),combo);}
+public static string AccessibleName(IntPtr h) {return Access(h).get_accName(0);}
+public static int AccessibleState(IntPtr h) {return Convert.ToInt32(Access(h).get_accState(0));}
+public static string Class(IntPtr h) {var b=new StringBuilder(128);GetClassName(h,b,128);return b.ToString();}
 public static int Role(IntPtr h) {return Convert.ToInt32(Access(h).get_accRole(0));}
 public static Accessibility.IAccessible Access(IntPtr h) {var iid=new Guid("618736E0-3C3D-11CF-810C-00AA00389B71");Accessibility.IAccessible a;int hr=AccessibleObjectFromWindow(h,0xFFFFFFFC,ref iid,out a);if(hr!=0)throw new Exception("MSAA failed "+hr);return a;}
 public static void Click(IntPtr h) {if(h==IntPtr.Zero)throw new Exception("Control missing");SendMessage(h,0xF5,IntPtr.Zero,IntPtr.Zero);}
@@ -34,13 +39,18 @@ public static void Shortcut() {keybd_event(0x11,0,0,UIntPtr.Zero);keybd_event(0x
 "@
 Add-Type -TypeDefinition $source -ReferencedAssemblies Accessibility
 function Assert($condition,$message) { if (!$condition) { throw $message }; "PASS: $message" }
-$file=Join-Path $env:APPDATA 'Minuter\settings.json'
+$appFolder=if($Rungui){'Minuter-rungui'}else{'Minuter'}
+$executable=if($Rungui){'target\release\minuter-rungui.exe'}else{'target\release\minuter.exe'}
+$windowTitle=if($Rungui){'Minuter — rungui experiment'}else{'Minuter'}
+if($Rungui){[MinuterNativeTest]::ChoiceNotification=1}
+$file=Join-Path $env:APPDATA "$appFolder\settings.json"
 $backup=if(Test-Path -LiteralPath $file){[System.IO.File]::ReadAllBytes($file)}else{$null}
-$process=Start-Process (Join-Path $PSScriptRoot 'target\release\minuter.exe') -WindowStyle Hidden -PassThru
+$process=Start-Process (Join-Path $PSScriptRoot $executable) -WindowStyle Hidden -PassThru -RedirectStandardError (Join-Path $PSScriptRoot "target\native-test-stderr.log")
+$nativeProcessHandle=$process.Handle
 try {
 Start-Sleep -Seconds 3
-$window=[MinuterNativeTest]::Window($process.Id,'Minuter')
-Assert ($window -ne [IntPtr]::Zero) 'WXDragon dialog created'
+$window=[MinuterNativeTest]::Window($process.Id,$windowTitle)
+Assert ($window -ne [IntPtr]::Zero) 'Settings window created'
 Assert ([MinuterNativeTest]::Window($process.Id,'wxWidgets Debug Alert') -eq [IntPtr]::Zero) 'No native startup assertion'
 [MinuterNativeTest]::ShowWindow($window,5)|Out-Null
 [MinuterNativeTest]::SetForegroundWindow($window)|Out-Null
@@ -48,16 +58,20 @@ $tick=[MinuterNativeTest]::Control($window,'&Tick every second')
 $close=[MinuterNativeTest]::Control($window,'&Close')
 $quit=[MinuterNativeTest]::Control($window,'&Quit Minuter')
 Assert ([MinuterNativeTest]::Role($tick) -eq 44) 'Tick is exposed as a checkbox'
+Assert ([MinuterNativeTest]::AccessibleName($tick) -eq 'Tick every second') 'Tick has a descriptive accessible name'
+"SETTINGS WINDOW CLASS: $([MinuterNativeTest]::Class($window))"
 Assert ([MinuterNativeTest]::Role($close) -eq 43) 'Close is exposed as a button'
 [MinuterNativeTest]::Click([MinuterNativeTest]::Control($window,'D&isable all'))
 Assert (![MinuterNativeTest]::Checked($tick)) 'Disable all clears tick'
 [MinuterNativeTest]::Click($tick)
 Assert ([MinuterNativeTest]::Checked($tick)) 'Tick changes immediately'
+Assert (([MinuterNativeTest]::AccessibleState($tick) -band 16) -ne 0) 'Checked state is exposed to screen readers'
 Start-Sleep -Milliseconds 100
 $saved=Get-Content -LiteralPath $file -Raw|ConvertFrom-Json
 Assert $saved.tick 'Cue settings are persisted'
 $combo=[MinuterNativeTest]::Combo($window)
 Assert ([MinuterNativeTest]::Role($combo) -eq 46) 'Sound device is exposed as a combo box'
+Assert ([MinuterNativeTest]::AccessibleName($combo) -eq 'Sound device') 'Sound device has a descriptive accessible name'
 "DEVICE COUNT: $([MinuterNativeTest]::SendMessage($combo,0x146,[IntPtr]::Zero,[IntPtr]::Zero))"
 [MinuterNativeTest]::Select($combo,1)
 Start-Sleep -Milliseconds 400
