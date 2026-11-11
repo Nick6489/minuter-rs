@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+
+- Embed the original tick and minute chime as lossless FLAC, reducing the standalone Windows executable by about 16%.
+- Preserve the existing 120 ms tick playback and full minute chime.
+
 ## 0.2.0
 
 - Switch the released interface from WXDragon to rungui, keeping the cue options, embedded sounds, screen-reader speech, device picker, tray controls, and global shortcut.

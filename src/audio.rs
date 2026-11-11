@@ -1,7 +1,8 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(test)]
+use std::io::Cursor;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::{
-    io::Cursor,
     sync::{
         Arc,
         atomic::{AtomicU32, Ordering},
@@ -16,6 +17,7 @@ pub struct Sample {
     pub channels: usize,
 }
 impl Sample {
+    #[cfg(test)]
     pub fn wav(bytes: &[u8], trim_ms: Option<u32>) -> Result<Self, String> {
         let mut reader = hound::WavReader::new(Cursor::new(bytes)).map_err(|e| e.to_string())?;
         let spec = reader.spec();
@@ -43,6 +45,29 @@ impl Sample {
             data,
             rate: spec.sample_rate,
             channels: spec.channels as usize,
+        })
+    }
+    fn flac(bytes: &[u8], trim_ms: Option<u32>) -> Result<Self, String> {
+        let mut reader = claxon::FlacReader::new(bytes).map_err(|error| error.to_string())?;
+        let info = reader.streaminfo();
+        let channels = info.channels as usize;
+        let scale = (1u64 << (info.bits_per_sample - 1)) as f32;
+        let count = trim_ms
+            .map(|ms| info.sample_rate as usize * ms as usize / 1000 * channels)
+            .unwrap_or(usize::MAX);
+        let data = reader
+            .samples()
+            .take(count)
+            .map(|sample| {
+                sample
+                    .map(|value| value as f32 / scale)
+                    .map_err(|error| error.to_string())
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(Self {
+            data,
+            rate: info.sample_rate,
+            channels,
         })
     }
     pub fn resample(&self, rate: u32) -> Vec<f32> {
@@ -93,10 +118,10 @@ pub struct Audio {
 impl Audio {
     pub fn start(device: Option<String>, flags: u32) -> Result<Self, String> {
         let samples = vec![
-            Sample::wav(include_bytes!("../assets/tick.wav"), Some(120))?,
+            Sample::flac(include_bytes!("../assets/tick.flac"), Some(120))?,
             Sample::tone(250.0),
             Sample::tone(1000.0),
-            Sample::wav(include_bytes!("../assets/minute.wav"), None)?,
+            Sample::flac(include_bytes!("../assets/minute.flac"), None)?,
         ];
         let flags = Arc::new(AtomicU32::new(flags));
         let preview = Arc::new(AtomicU32::new(0));
@@ -367,13 +392,32 @@ impl Mixer {
 mod tests {
     use super::*;
     #[test]
+    fn flac_preserves_original_samples() {
+        for (wav, flac) in [
+            (
+                &include_bytes!("../assets/tick.wav")[..],
+                &include_bytes!("../assets/tick.flac")[..],
+            ),
+            (
+                &include_bytes!("../assets/minute.wav")[..],
+                &include_bytes!("../assets/minute.flac")[..],
+            ),
+        ] {
+            let wav = Sample::wav(wav, None).unwrap();
+            let flac = Sample::flac(flac, None).unwrap();
+            assert_eq!(wav.rate, flac.rate);
+            assert_eq!(wav.channels, flac.channels);
+            assert_eq!(wav.data, flac.data);
+        }
+    }
+    #[test]
     fn original_assets_decode_and_tick_is_trimmed() {
-        let tick = Sample::wav(include_bytes!("../assets/tick.wav"), Some(120)).unwrap();
+        let tick = Sample::flac(include_bytes!("../assets/tick.flac"), Some(120)).unwrap();
         assert_eq!(
             tick.data.len(),
             tick.rate as usize * 120 / 1000 * tick.channels
         );
-        let minute = Sample::wav(include_bytes!("../assets/minute.wav"), None).unwrap();
+        let minute = Sample::flac(include_bytes!("../assets/minute.flac"), None).unwrap();
         assert!(minute.data.len() > minute.rate as usize / 2);
         assert!(
             tick.data
